@@ -1,0 +1,37 @@
+# .github/workflows/push-notifications.yml
+name: Push Notifications
+on:
+  push:
+    branches: [ main, develop ]
+
+jobs:
+  push-notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract Commit Info
+        id: extract_commit
+        run: |
+          echo "COMMIT_MESSAGE<<EOF" >> $GITHUB_OUTPUT
+          echo "${{ github.event.head_commit.message }}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Send Push Notification
+        env:
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"embeds\": [{
+                \"title\": \"📦 New Push\",
+                \"description\": \"New code pushed to ${{ github.ref }}\",
+                \"color\": 3066993,
+                \"fields\": [
+                  {\"name\": \"Commit Message\", \"value\": \"${{ steps.extract_commit.outputs.COMMIT_MESSAGE }}\", \"inline\": false},
+                  {\"name\": \"Author\", \"value\": \"${{ github.event.head_commit.author.name }}\", \"inline\": true},
+                  {\"name\": \"Files Changed\", \"value\": \"${{ github.event.commits.size }}\", \"inline\": true}
+                ],
+                \"timestamp\": \"${{ github.event.head_commit.timestamp }}\"
+              }]
+            }" \
+            "$WEBHOOK_URL"

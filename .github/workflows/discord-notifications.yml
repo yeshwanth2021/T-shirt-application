@@ -1,0 +1,78 @@
+name: Discord Notifications
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    types: [ opened, closed, reopened, review_requested ]
+  issues:
+    types: [ opened, closed, reopened ]
+  release:
+    types: [ published ]
+
+jobs:
+  notify-discord:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Discord Notification
+        env:
+          WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          EVENT_TYPE: ${{ github.event_name }}
+          REPOSITORY: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          REF: ${{ github.ref }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          # Create the Discord payload
+          PAYLOAD=$(cat << EOF
+          {
+            "embeds": [
+              {
+                "title": "🚀 GitHub Activity - $EVENT_TYPE",
+                "description": "New activity in your repository",
+                "color": 5814783,
+                "fields": [
+                  {
+                    "name": "Repository",
+                    "value": "$REPOSITORY",
+                    "inline": true
+                  },
+                  {
+                    "name": "Triggered By",
+                    "value": "$ACTOR", 
+                    "inline": true
+                  },
+                  {
+                    "name": "Branch/Ref",
+                    "value": "$REF",
+                    "inline": true
+                  },
+                  {
+                    "name": "Event Type",
+                    "value": "$EVENT_TYPE",
+                    "inline": true
+                  },
+                  {
+                    "name": "Workflow Status",
+                    "value": "$JOB_STATUS",
+                    "inline": true
+                  },
+                  {
+                    "name": "Timestamp",
+                    "value": "$(date -Iseconds)",
+                    "inline": true
+                  }
+                ],
+                "footer": {
+                  "text": "GitHub Actions • $(date)"
+                }
+              }
+            ]
+          }
+          EOF
+          )
+          
+          # Send to Discord
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            "$WEBHOOK_URL"
